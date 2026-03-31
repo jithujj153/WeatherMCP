@@ -16,6 +16,45 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 8080;
 
+app.get('/', (req: Request, res: Response) => {
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCP Agent</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center}
+    .card{background:#1e293b;border-radius:16px;padding:48px;max-width:560px;width:90%;box-shadow:0 25px 50px rgba(0,0,0,.4)}
+    h1{font-size:1.75rem;margin-bottom:8px;color:#f8fafc}
+    .badge{display:inline-block;background:#059669;color:#fff;font-size:.75rem;padding:4px 10px;border-radius:999px;margin-bottom:24px}
+    p{color:#94a3b8;line-height:1.6;margin-bottom:16px}
+    .endpoint{background:#0f172a;border-radius:8px;padding:16px;margin-bottom:12px;font-family:'Fira Code',monospace;font-size:.875rem}
+    .method{font-weight:700;margin-right:8px}
+    .get{color:#22d3ee}.post{color:#a78bfa}
+    .path{color:#e2e8f0}
+    .desc{color:#64748b;font-size:.8rem;margin-top:4px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>MCP Agent</h1>
+    <span class="badge">Running</span>
+    <p>ADK-powered AI agent connected to MCP weather tools, deployed on Cloud Run.</p>
+    <div class="endpoint">
+      <span class="method post">POST</span><span class="path">/chat</span>
+      <div class="desc">Send <code>{"message":"your prompt"}</code> as JSON body</div>
+    </div>
+    <div class="endpoint">
+      <span class="method get">GET</span><span class="path">/health</span>
+      <div class="desc">Health check endpoint</div>
+    </div>
+  </div>
+</body>
+</html>`);
+});
+
 app.post('/chat', async (req: Request, res: Response): Promise<void> => {
     try {
         const message = req.body.message;
