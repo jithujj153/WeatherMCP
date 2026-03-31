@@ -1,14 +1,18 @@
 import express, { Request, Response } from 'express';
-import { ADKAgent } from './agent.js';
+import { spawn } from 'child_process';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Calculate __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables (.env file)
 dotenv.config();
 
 const app = express();
 app.use(express.json());
-
-const agent = new ADKAgent();
 
 const PORT = process.env.PORT || 8080;
 
@@ -21,8 +25,43 @@ app.post('/chat', async (req: Request, res: Response): Promise<void> => {
         }
 
         console.log(`Incoming request with message: ${message}`);
-        const response = await agent.query(message);
-        res.json({ response });
+
+        // Determine correct path depending on transpilation state
+        const isCompiled = __filename.endsWith('.js');
+        const agentPath = isCompiled ? path.resolve(__dirname, '../src/agent.py') : path.resolve(__dirname, 'agent.py');
+
+        const pythonProcess = spawn('python', [agentPath, message]);
+
+        let dataString = '';
+        let errorString = '';
+
+        pythonProcess.stdout.on('data', (data) => {
+            dataString += data.toString();
+        });
+
+        pythonProcess.stderr.on('data', (data) => {
+            errorString += data.toString();
+            // console.error(`Python stderr: ${data.toString()}`);
+        });
+
+        pythonProcess.on('close', (code) => {
+            if (code !== 0) {
+                 res.status(500).json({ error: 'Agent execution failed', details: errorString });
+                 return;
+            }
+            try {
+                 const parsed = JSON.parse(dataString);
+                 if (parsed.error) {
+                      res.status(500).json({ error: parsed.error });
+                      return;
+                 }
+                 res.json({ response: parsed.response });
+            } catch (e) {
+                 // Fallback if structured json parse fails
+                 res.json({ response: dataString.trim() });
+            }
+        });
+
     } catch (err: any) {
         console.error("Chat error:", err);
         res.status(500).json({ error: 'Failed to process request', details: err.message });
@@ -30,31 +69,10 @@ app.post('/chat', async (req: Request, res: Response): Promise<void> => {
 });
 
 app.get('/health', (req: Request, res: Response) => {
-    res.json({ status: 'ok', message: 'ADK Agent MCP service is running' });
+    res.json({ status: 'ok', message: 'ADK Python MCP agent is running' });
 });
 
-// Initialize MCP tools and start server
-async function start() {
-    try {
-        await agent.initialize();
-        app.listen(PORT, () => {
-            console.log(`Cloud Run AI Agent listening on HTTP port ${PORT}`);
-            console.log("Ready to accept POST /chat payloads");
-        });
-    } catch (err) {
-        console.error("Agent initialization failed:", err);
-        process.exit(1);
-    }
-}
-
-start();
-
-// Handle graceful shutdown to release MCP child processes
-function shutdown() {
-    console.log("Shutting down... releasing MCP child processes.");
-    /* agent.shutdown().then(() => process.exit(0))
-        .catch(() => process.exit(1)); */
-    process.exit(0);
-}
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+app.listen(PORT, () => {
+    console.log(`Cloud Run AI Agent listening on HTTP port ${PORT}`);
+    console.log("Ready to accept POST /chat payloads");
+});

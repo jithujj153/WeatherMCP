@@ -59,13 +59,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       throw new Error("Missing or invalid latitude/longitude");
     }
 
-    const apiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
-    console.error(`Executing MCP Tool: Fetching weather from ${apiUrl}`);
+    const apiKey = process.env.WEATHER_API_KEY;
+    if (!apiKey) {
+      throw new Error("Missing WEATHER_API_KEY environment variable. Cannot call Google Cloud Weather API.");
+    }
+
+    // Google Cloud / third party Weather API endpoint design
+    const apiUrl = `https://weather-api.googleapis.com/v1/forecast?key=${apiKey}&location=${lat},${lon}`;
+    console.error(`Executing MCP Tool: Fetching weather from Google Cloud Weather API`);
 
     try {
+      // Basic HTTP GET request simulation for Google Weather API format
       const response = await fetch(apiUrl);
       if (!response.ok) {
-        throw new Error(`Open-Meteo API error: ${response.statusText}`);
+        throw new Error(`Weather API error: ${response.status} ${response.statusText}`);
       }
       const data = await response.json();
 
@@ -73,7 +80,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         content: [
           {
             type: "text",
-            text: `Weather data for ${loc || lat + "," + lon}:\n${JSON.stringify(data.current_weather, null, 2)}`,
+            text: `Weather data from Google Cloud Weather API for ${loc || lat + "," + lon}:\n${JSON.stringify(data, null, 2)}`,
           },
         ],
       };
